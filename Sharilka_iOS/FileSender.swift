@@ -3,7 +3,7 @@
 //  Sharilka_iOS
 //
 //  Handles a single file transfer over TCP using NWConnection.
-//  Sends the exact SHRK binary protocol header then streams file data
+//  Sends the exact SHRK binary protocol v2 header then streams file data
 //  from disk in chunks, never loading the entire file into memory.
 //
 //  Uses a bounded ChunkBuffer to pipeline file reading and network sending:
@@ -18,7 +18,7 @@ import Combine
 import Foundation
 import Network
 
-/// Performs file sending over a raw TCP connection using the SHRK protocol.
+/// Performs file sending over a raw TCP connection using the SHRK protocol v2.
 /// All callbacks are dispatched to MainActor by the caller (SenderViewModel).
 final class FileSender: @unchecked Sendable {
     private var connection: NWConnection?
@@ -52,6 +52,7 @@ final class FileSender: @unchecked Sendable {
     ///   - fileName: The filename to transmit in the protocol header.
     ///   - fileSize: The file size to transmit in the protocol header (and the number of bytes to send).
     ///   - chunkSize: The chunk size in bytes for streaming. Defaults to the saved setting.
+    ///   - flags: Transfer flags byte (0 for normal, TransferFlags.benchmark for benchmark).
     ///   - byteLimit: Optional maximum number of bytes to send from the file. If nil, sends `fileSize` bytes.
     ///                When set, this is the number of bytes actually transmitted, and `fileSize` in the header
     ///                should already be set to this value by the caller.
@@ -61,6 +62,7 @@ final class FileSender: @unchecked Sendable {
         fileName: String,
         fileSize: UInt64,
         chunkSize: Int = TransferSettings.savedChunkSize,
+        flags: UInt8 = TransferFlags.none,
         byteLimit: UInt64? = nil
     ) {
         isCancelled = false
@@ -89,7 +91,8 @@ final class FileSender: @unchecked Sendable {
                     fileName: fileName,
                     fileSize: fileSize,
                     transmitSize: transmitSize,
-                    chunkSize: chunkSize
+                    chunkSize: chunkSize,
+                    flags: flags
                 )
             case .failed(let error):
                 self.onLog?("Connection failed: \(error.localizedDescription)", true)
@@ -140,13 +143,15 @@ final class FileSender: @unchecked Sendable {
         fileName: String,
         fileSize: UInt64,
         transmitSize: UInt64,
-        chunkSize: Int
+        chunkSize: Int,
+        flags: UInt8
     ) {
         guard !isCancelled else { return }
 
-        // Build the exact SHRK header:
+        // Build the SHRK v2 header:
         // [4 bytes] "SHRK" magic
-        // [1 byte]  protocol version (1)
+        // [1 byte]  protocol version (2)
+        // [1 byte]  transfer flags
         // [8 bytes] filename length (UInt64 LE)
         // [8 bytes] file size (UInt64 LE)
         // [N bytes] filename (UTF-8)
@@ -159,7 +164,8 @@ final class FileSender: @unchecked Sendable {
 
         var header = Data()
         header.append(contentsOf: SharilkaProtocol.magic) // "SHRK"
-        header.append(SharilkaProtocol.version)            // version 1
+        header.append(SharilkaProtocol.version)            // version 2
+        header.append(flags)                               // transfer flags
 
         var filenameLength = UInt64(filenameData.count).littleEndian
         header.append(Data(bytes: &filenameLength, count: 8))
@@ -170,8 +176,9 @@ final class FileSender: @unchecked Sendable {
 
         header.append(filenameData) // UTF-8 filename
 
+        let flagsDescription = flags == TransferFlags.none ? "normal" : "benchmark"
         onStateChange?(.sendingHeader)
-        onLog?("Sending header: \"\(fileName)\" (\(ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)))", false)
+        onLog?("Sending v2 header (\(flagsDescription)): \"\(fileName)\" (\(ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)))", false)
 
         // Send the complete header
         connection.send(content: header, completion: .contentProcessed { [weak self] error in
@@ -184,7 +191,7 @@ final class FileSender: @unchecked Sendable {
                 return
             }
 
-            self.onLog?("Header sent (\(header.count) bytes)", false)
+            self.onLog?("Header sent (\(header.count) bytes, v2 flags=\(flags))", false)
             self.startPipeline(
                 connection: connection,
                 fileURL: fileURL,

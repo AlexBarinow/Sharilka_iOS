@@ -3,8 +3,8 @@
 //  Sharilka_iOS
 //
 //  Orchestrates sequential benchmark transfers to determine the best chunk size.
-//  Each benchmark run sends a limited payload (default 256 MB or file size if smaller)
-//  using the full SHRK protocol, one chunk size at a time.
+//  Each benchmark run sends a limited payload (default 1 GB or file size if smaller)
+//  using the full SHRK protocol v2 with the benchmark flag, one chunk size at a time.
 //
 
 import Foundation
@@ -127,13 +127,14 @@ final class BenchmarkRunner: @unchecked Sendable {
 
             let startTime = Date()
 
-            // Send benchmark payload using the full SHRK protocol
+            // Send benchmark payload using the full SHRK protocol v2 with benchmark flag
             sender.send(
                 to: endpoint,
                 fileURL: fileURL,
                 fileName: benchmarkFileName,
                 fileSize: payloadSize,   // header advertises benchmark payload size
                 chunkSize: chunkSize,
+                flags: TransferFlags.benchmark,
                 byteLimit: payloadSize   // only send this many bytes from the file
             )
 

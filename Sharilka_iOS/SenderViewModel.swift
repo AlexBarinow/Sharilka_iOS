@@ -217,6 +217,14 @@ final class SenderViewModel: ObservableObject {
         updateTransferStateIfReady()
     }
 
+    // MARK: - Chunk Size Selection
+
+    func selectChunkSize(_ size: Int) {
+        activeChunkSize = size
+        TransferSettings.savedChunkSize = size
+        addLog("Chunk size set to \(TransferSettings.formattedChunkSize(size))")
+    }
+
     // MARK: - Transfer
 
     func startTransfer() {
@@ -251,7 +259,8 @@ final class SenderViewModel: ObservableObject {
             fileURL: file.url,
             fileName: file.name,
             fileSize: file.size,
-            chunkSize: activeChunkSize
+            chunkSize: activeChunkSize,
+            flags: TransferFlags.none
         )
     }
 

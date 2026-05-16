@@ -2,7 +2,8 @@
 //  ContentView.swift
 //  Sharilka_iOS
 //
-//  Main UI: Discovery, File Selection, Transfer Progress, Transfer Benchmark, and Log.
+//  Main UI: Discovery, File Selection, Transfer Progress, Chunk Size Settings,
+//  Transfer Benchmark, and Log.
 //
 
 import SwiftUI
@@ -17,6 +18,7 @@ struct ContentView: View {
             List {
                 discoverySection
                 fileSection
+                chunkSizeSection
                 transferSection
                 benchmarkSection
                 logSection
@@ -171,6 +173,80 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Chunk Size Section
+
+    private var chunkSizeSection: some View {
+        Section {
+            // Current active chunk size display
+            HStack {
+                Label {
+                    Text("Active chunk size")
+                        .font(.subheadline)
+                } icon: {
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                }
+
+                Spacer()
+
+                Text(vm.formattedActiveChunkSize)
+                    .font(.subheadline.monospacedDigit().weight(.bold))
+                    .foregroundStyle(.blue)
+            }
+
+            // Chunk size picker buttons
+            ForEach(TransferSettings.availableChunkSizes, id: \.self) { size in
+                Button {
+                    vm.selectChunkSize(size)
+                } label: {
+                    HStack {
+                        Text(TransferSettings.formattedChunkSize(size))
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Spacer()
+
+                        if vm.activeChunkSize == size {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.blue)
+                                .font(.body)
+                        } else {
+                            Image(systemName: "circle")
+                                .foregroundStyle(.secondary.opacity(0.5))
+                                .font(.body)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(vm.transferState.isActive || vm.benchmarkState.isActive)
+            }
+
+            // Inline apply recommended button (shown when benchmark has a recommendation
+            // that differs from the current selection)
+            if let result = vm.benchmarkFinalResult,
+               result.recommendedChunkSize != vm.activeChunkSize,
+               !vm.benchmarkState.isActive {
+                Button {
+                    vm.applyRecommendedChunkSize()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "star.fill")
+                            .foregroundStyle(.yellow)
+                            .font(.caption)
+                        Text("Apply Recommended: \(TransferSettings.formattedChunkSize(result.recommendedChunkSize))")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.bordered)
+                .tint(.purple)
+            }
+        } header: {
+            Label("Chunk Size", systemImage: "slider.horizontal.3")
+        }
+    }
+
     // MARK: - Transfer Section
 
     private var transferSection: some View {
@@ -190,24 +266,6 @@ struct ContentView: View {
                         .foregroundStyle(.red)
                         .font(.title3)
                 }
-            }
-
-            // Current chunk size
-            HStack {
-                Label {
-                    Text("Chunk size")
-                        .font(.subheadline)
-                } icon: {
-                    Image(systemName: "square.stack.3d.up")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Text(vm.formattedActiveChunkSize)
-                    .font(.subheadline.monospacedDigit().weight(.medium))
-                    .foregroundStyle(.blue)
             }
 
             // Progress (shown during active transfer or after completion)
@@ -399,12 +457,12 @@ struct ContentView: View {
                 }
             }
 
-            // Note about temp files
+            // Note about benchmark behavior
             HStack(alignment: .top, spacing: 6) {
                 Image(systemName: "info.circle")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("Benchmark transfers create temporary files on the Mac receiver.")
+                Text("Benchmark sends 1 GB per chunk size. The Mac receiver auto-deletes benchmark files.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -487,7 +545,7 @@ struct ContentView: View {
                         Button {
                             vm.applyRecommendedChunkSize()
                         } label: {
-                            Label("Apply recommended setting", systemImage: "checkmark.circle.fill")
+                            Label("Apply Recommended Setting", systemImage: "checkmark.circle.fill")
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .buttonStyle(.borderedProminent)
