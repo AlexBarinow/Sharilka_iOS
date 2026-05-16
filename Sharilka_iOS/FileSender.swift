@@ -69,7 +69,9 @@ final class FileSender: @unchecked Sendable {
 
         let transmitSize = byteLimit ?? fileSize
 
-        let tcp = NWParameters.tcp
+        let tcpOptions = NWProtocolTCP.Options()
+        tcpOptions.noDelay = true
+        let tcp = NWParameters(tls: nil, tcp: tcpOptions)
         let connection = NWConnection(to: endpoint, using: tcp)
         lock.withLock {
             self.connection = connection
@@ -304,6 +306,7 @@ final class FileSender: @unchecked Sendable {
         transmitSize: UInt64
     ) async {
         var totalSent: UInt64 = 0
+        var lastProgressReport = DispatchTime.now()
 
         while let chunk = await buffer.dequeue() {
             // Check cancellation
@@ -331,7 +334,14 @@ final class FileSender: @unchecked Sendable {
             }
 
             totalSent += UInt64(chunk.count)
-            self.onProgress?(totalSent)
+
+            // Throttle progress callbacks to ~20/s to reduce @MainActor dispatch overhead
+            let now = DispatchTime.now()
+            let elapsed = Double(now.uptimeNanoseconds - lastProgressReport.uptimeNanoseconds) / 1_000_000_000
+            if elapsed >= 0.05 || totalSent >= transmitSize {
+                self.onProgress?(totalSent)
+                lastProgressReport = now
+            }
         }
 
         // Check if the buffer ended due to an error

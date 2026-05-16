@@ -112,7 +112,7 @@ enum SharilkaProtocol {
     /// v2 header: magic(4) + version(1) + flags(1) + filenameLen(8) + fileSize(8) = 22 bytes
     static let headerFixedSize = 4 + 1 + 1 + 8 + 8
     static let bonjourServiceType = "_sharilka._tcp"
-    static let defaultChunkSize = 524_288 // 512 KB
+    static let defaultChunkSize = 1_048_576 // 1 MB
 }
 
 // MARK: - Transfer Flags
@@ -129,11 +129,13 @@ enum TransferSettings {
 
     /// Available chunk sizes for manual selection.
     static let availableChunkSizes: [Int] = [
-        262_144,    // 256 KB
-        524_288,    // 512 KB
-        1_048_576,  // 1 MB
-        2_097_152,  // 2 MB
-        4_194_304,  // 4 MB
+        262_144,      // 256 KB
+        524_288,      // 512 KB
+        1_048_576,    // 1 MB
+        2_097_152,    // 2 MB
+        4_194_304,    // 4 MB
+        8_388_608,    // 8 MB
+        16_777_216,   // 16 MB
     ]
 
     static var savedChunkSize: Int {
@@ -209,11 +211,13 @@ struct BenchmarkResult: Sendable {
 // Chunk sizes to test during benchmark
 enum BenchmarkConfig {
     static let chunkSizes: [Int] = [
-        262_144,    // 256 KB
-        524_288,    // 512 KB
-        1_048_576,  // 1 MB
-        2_097_152,  // 2 MB
-        4_194_304,  // 4 MB
+        262_144,      // 256 KB
+        524_288,      // 512 KB
+        1_048_576,    // 1 MB
+        2_097_152,    // 2 MB
+        4_194_304,    // 4 MB
+        8_388_608,    // 8 MB
+        16_777_216,   // 16 MB
     ]
     static let defaultPayloadSize: UInt64 = 1_073_741_824 // 1 GB
     static let pauseBetweenRuns: TimeInterval = 0.75       // seconds

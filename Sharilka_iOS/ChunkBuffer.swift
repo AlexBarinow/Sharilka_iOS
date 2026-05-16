@@ -18,7 +18,7 @@ import Foundation
 /// - Either side can call `cancel()` or `fail(_:)` to abort the pipeline.
 actor ChunkBuffer {
     /// Default prefetch capacity: number of chunks that can be buffered ahead.
-    static let defaultCapacity = 4
+    static let defaultCapacity = 8
 
     private var buffer: [Data] = []
     private let capacity: Int
